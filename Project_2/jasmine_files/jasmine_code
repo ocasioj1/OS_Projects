@@ -1,0 +1,81 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <wait.h>
+
+/* Take input file and put into 2d board array */
+// char* make_board(char* args){
+    
+//     int board[9][9] = {
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0},
+//                         {0,0,0,0,0,0,0,0,0}
+//                                             };
+
+//     /* Break up by spaces and store each term in args*/
+//     char* num = strtok(args, " ");
+//     int col = 0;
+//     int row = 0;
+//     /* Add each piece to args until it reaches null character*/
+//     while(num != NULL){
+//         board[row][col] = (int)num;
+
+//         col++;
+//         num = strtok(NULL, " ");
+//     }
+
+//     board[row][col] =NULL;
+//     return board;
+
+// }
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char** argv) {
+    char line[80];  // Buffer to hold each line
+    int board[9][9]; // Empty sudoku board
+
+    FILE* inputFile = fopen("input.txt", "r");
+    if (inputFile == NULL) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    for (int i = 0; i < 9; i++) {
+        if (fgets(line, sizeof(line), inputFile) == NULL) {
+            perror("Error getting line");
+            fclose(inputFile);
+            return 1;
+        }
+
+        // Tokenize after fgets successfully reads a line
+        char* num = strtok(line, " \n");
+        for (int j = 0; j < 9 && num != NULL; j++) {
+            board[i][j] = atoi(num);
+            num = strtok(NULL, " \n");  // Get the next number
+        }
+    }
+
+    fclose(inputFile);
+
+    // Print the board to verify correctness
+    printf("Sudoku Board:\n");
+    for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+            printf("%d ", board[i][j]);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}
