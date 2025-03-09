@@ -41,6 +41,16 @@ void print_arr(int *arr) {
     return;
 }
 
+/*test. dont include me in final lol*/
+void print_arr3(int *arr) {
+    printf("[");
+    for(int i = 0; i < 3; ++i) {
+        printf("%d, ", arr[i]);
+    }
+    printf("]\n");
+    return;
+}
+
 void set_results(pthread_mutex_t lock, int *result_location, int result) {
     pthread_mutex_lock(&lock);
     *result_location = result;
@@ -213,8 +223,9 @@ void *check_cols_mt(){
         pthread_join(tid[i], NULL);
     }
     for (int i = 0; i < 9; ++i){
-        if (results_rows[i] == 0){
+        if (results_cols[i] == 0){
             /*At least one result was invalid*/
+            printf("lol: %d\n", i);
             set_results(results_lock, &results_final[1], 0);
             pthread_exit(0);
         }
@@ -373,7 +384,7 @@ int main(int argc, char** argv){
     else{
         printf("Invalid option selected. Please select 1,2 or 3.\n");
     }
-
+    print_arr3(results_final);
     /* Printing verdict with timing*/
     if(verdict == 1){
         printf("SOLUTION: YES(%ld seconds)\n", end-begin);
