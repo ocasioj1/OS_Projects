@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <wait.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
 
 
 /* Global variables for board and line in board */
@@ -15,8 +16,15 @@ int board[9][9]; // Empty sudoku board
 int results_rows[9];
 int results_cols[9];
 int results_blocks[9];
+
 /*Rows is index 0, columns is index 1, blocks is index 2*/
 int results_final[3];
+
+/*Locks for the result arrays*/
+pthread_mutex_t rows_lock;  
+pthread_mutex_t cols_lock;
+pthread_mutex_t blocks_lock;
+pthread_mutex_t results_lock;
 
 /*Structure to send values to check_block()*/
 typedef struct {
@@ -32,6 +40,23 @@ void print_arr(int *arr) {
     }
     printf("]\n");
     return;
+}
+
+/*test. dont include me in final lol*/
+void print_arr3(int *arr) {
+    printf("[");
+    for(int i = 0; i < 3; ++i) {
+        printf("%d, ", arr[i]);
+    }
+    printf("]\n");
+    return;
+}
+
+/* Locks given location until result is given */
+void set_results(pthread_mutex_t lock, int *result_location, int result) {
+    pthread_mutex_lock(&lock);
+    *result_location = result;
+    pthread_mutex_unlock(&lock);
 }
 
 /*Sorts the given integer array, assumes size of 9.*/
@@ -99,7 +124,7 @@ void *check_row_mt(void *param){
     for (int i = 0; i < 9; ++i){
         arr[i] = (board[y][i]);
     }
-    results_rows[y] = check_valid(arr);
+    set_results(rows_lock, &results_rows[y], check_valid(arr));
     pthread_exit(0);
 }
 
@@ -113,7 +138,7 @@ void *check_col_mt(void *param){
     for (int i = 0; i < 9; ++i){
         arr[i] = (board[i][x]);
     }
-    results_cols[x] = check_valid(arr);
+    set_results(cols_lock, &results_cols[x], check_valid(arr));
     pthread_exit(0);
 }
 
@@ -131,7 +156,7 @@ void *check_block(void *param){
             arr[i * 3 + j] = board[i + (y * 3)][j + (x * 3)];
         }
     }
-    results_blocks[x + 3 * y] = check_valid(arr);
+    set_results(blocks_lock, &results_blocks[x + 3 * y], check_valid(arr));
     pthread_exit(0);
 }
 
@@ -139,12 +164,12 @@ void *check_block(void *param){
 void *check_rows(){
     for (int i = 0; i < 9; ++i){
         if (check_row(i) == 0){
-            results_final[0] = 0; 
+            set_results(results_lock, &results_final[0], 0);
             pthread_exit(0);
         }
         //printf("Row %d is valid\n", i); //DELETE ME-- JUST FOR CHECKS
     }
-    results_final[0] = 1;
+    set_results(results_lock, &results_final[0], 1);
     
     pthread_exit(0);
 }
@@ -153,11 +178,11 @@ void *check_rows(){
 void *check_cols(){
     for (int i = 0; i < 9; ++i){
         if (check_col(i) == 0){
-            results_final[1] = 0;
+            set_results(results_lock, &results_final[1], 0);
             pthread_exit(0);
         }
     }
-    results_final[1] = 1;
+    set_results(results_lock, &results_final[1], 1);
     pthread_exit(0);
 }
 
@@ -177,12 +202,12 @@ void *check_rows_mt(){
     for (int i = 0; i < 9; ++i){
         if (results_rows[i] == 0){
             /*At least one result was invalid*/
-            results_final[0] = 0;
+            set_results(results_lock, &results_final[0], 0);
             pthread_exit(0);
         }
     }
     /*All results were valid!*/
-    results_final[0] = 1;
+    set_results(results_lock, &results_final[0], 1);
     pthread_exit(0);
 }
 
@@ -200,14 +225,15 @@ void *check_cols_mt(){
         pthread_join(tid[i], NULL);
     }
     for (int i = 0; i < 9; ++i){
-        if (results_rows[i] == 0){
+        if (results_cols[i] == 0){
             /*At least one result was invalid*/
-            results_final[1] = 0;
+            printf("lol: %d\n", i);
+            set_results(results_lock, &results_final[1], 0);
             pthread_exit(0);
         }
     }
     /*All results were valid!*/
-    results_final[1] = 1;
+    set_results(results_lock, &results_final[1], 1);
     pthread_exit(0);
 }
 
@@ -232,12 +258,80 @@ void *check_blocks_mt(){
     for (int i = 0; i < 9; ++i){
         if (results_blocks[i] == 0){
             /*At least one result was invalid*/
-            results_final[2] = 0;
+            set_results(results_lock, &results_final[2], 0);
             pthread_exit(0);
         }
     }
     /*All results were valid!*/
-    results_final[2] = 1;
+    set_results(results_lock, &results_final[2], 1);
+    pthread_exit(0);
+}
+
+
+/* Check all rows in one thread for child process */
+void *check_rows_child(void* mem){
+    int* results = (int*)mem;
+    /* assume row is valid */
+    int valid = 1;
+    for (int i = 0; i < 9; ++i){
+        if (check_row(i) == 0){
+            valid = 0;
+            break;
+        }
+    }
+    *results =  valid;
+    //printf("Rows: %d", valid);
+    
+    pthread_exit(0);
+}
+
+/*Checks all columns in one thread for child process*/
+void *check_cols_child(void* mem){
+    int* results = (int*)mem;
+    /* assume col is valid */
+    int valid = 1;
+    for (int i = 0; i < 9; ++i){
+        if (check_col(i) == 0){
+            valid = 0;
+            break;
+        }
+    }
+    *results = valid;
+    //printf("Cols: %d", valid);
+    pthread_exit(0);
+}
+
+
+/*Checks all blocks, multithreaded for child process */
+void *check_blocks_child(void* mem){
+    int* results = (int*)mem;
+    /* assume col is valid */
+    int valid = 1;
+    pthread_t tid[9];
+    /*Dispatch threads*/
+    for (int i = 0; i < 3; ++i){
+        for (int j = 0; j < 3; ++j){
+            /*i*3+j returns a nice little index number, same as 2d array to pointer offset*/
+            block_offset *input = malloc(sizeof(block_offset));
+            input->x = i;
+            input->y = j;
+            pthread_create(&tid[i * 3 + j], NULL, check_block, input);
+        }
+    }
+    /*Wait for threads to conclude*/
+    for (int i = 0; i < 9; ++i){
+        pthread_join(tid[i], NULL);
+    }
+    /*Check result*/
+    for (int i = 0; i < 9; ++i){
+        if (results_blocks[i] == 0){
+            /*At least one result was invalid*/
+            valid = 0;
+            break;
+        }
+    }
+    *results = valid;
+    //printf("Blocks: %d", valid);
     pthread_exit(0);
 }
 
@@ -275,6 +369,86 @@ int option_2(){
     /*Check results*/
     for (int i = 0; i < 3; ++i){
         if (results_final[i] == 0){
+            /*At least one result was invalid*/
+            return 0;
+        }
+    }
+    /*All were valid!*/
+    return 1;
+}
+
+int* shared_mem(){
+    // Naming shared memory
+	const char* name = "VALID";
+
+	// Size of shared memory
+	const int SIZE = 4096;
+
+	// Shared memory file descriptor
+	int shm_fd;
+	
+	// Memory map the pointer to shared memory object
+    int* mem = mmap(NULL, sizeof(int) * 3, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+    /* initialize to all zeros */
+    for(int i=0; i<3; i++){
+        mem[i]=0;
+    }
+    return mem;
+}
+
+int option_3(){
+
+    pid_t pid;
+    pthread_t tid_row, tid_col, tid_block;
+        
+    /* pass this as argument for check- functions */
+    int* memory = shared_mem();
+
+    for(int i = 0; i<3; i++){
+        pid = fork();
+
+        if(pid == 0){ /* Child */
+            // check rows
+            if(i==1){
+                //printf("checking rows\n");
+                pthread_create(&tid_row, NULL, check_rows_child, &memory[0]);
+                pthread_join(tid_row, NULL);
+                        
+            }
+            else if(i==2){
+                //printf("checking cols\n");
+                pthread_create(&tid_col, NULL, check_cols_child, &memory[1]);
+                pthread_join(tid_col, NULL);
+         
+            }
+            else{
+                //printf("checkings blocks\n");
+                pthread_create(&tid_block, NULL, check_blocks_child, &memory[2]);
+                pthread_join(tid_block, NULL);
+         
+            }
+            exit(0);
+        }
+        else if(pid<0){
+            if(i==1){
+                perror("Error in checking rows\n");
+            }
+            else if(i==2){
+                perror("Error in checking columns\n");
+            }
+            else{
+                perror("Error in checking blocks\n");
+            }
+            exit(1);
+        }
+    }
+    for(int i = 0 ; i<3 ; i++){ /* Parent processes*/
+        wait(NULL);
+
+    }
+    for(int i = 0; i < 3; ++i){
+        if (memory[i] == 0){
             /*At least one result was invalid*/
             return 0;
         }
@@ -341,26 +515,30 @@ int main(int argc, char** argv){
     time_t begin,end;
     if(option == 1){
         begin = time(NULL);
-        printf("Begin time: %ld \n", begin);
+        //printf("Begin time: %ld \n", begin);
         verdict = option_1();
         end = time(NULL);
-        printf("End time: %ld \n", end);
+        //printf("End time: %ld \n", end);
     }
     else if(option == 2){
         begin = time(NULL);
-        printf("Begin time: %ld \n", begin);
+        //printf("Begin time: %ld \n", begin);
         verdict = option_2();
         end = time(NULL);
-        printf("End time: %ld \n", end);
+        //printf("End time: %ld \n", end);
     }
 
     else if(option == 3){
-        printf("Option 3 not yet implemented.\n");
+        begin = time(NULL);
+        //printf("Begin time: %ld \n", begin);
+        verdict = option_3();
+        end = time(NULL);
+        //printf("End time: %ld \n", end);
     }
     else{
         printf("Invalid option selected. Please select 1,2 or 3.\n");
     }
-
+    //print_arr3(results_final);
     /* Printing verdict with timing*/
     if(verdict == 1){
         printf("SOLUTION: YES(%ld seconds)\n", end-begin);
