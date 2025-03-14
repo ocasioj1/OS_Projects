@@ -508,8 +508,6 @@ int main(int argc, char** argv){
     FILE* inputFile = fopen("input.txt", "r");
 
     make_board(inputFile, board, line);
-    
-    
 
     /* Execute chosen option and get timing */
     int verdict = 2;
@@ -528,7 +526,7 @@ int main(int argc, char** argv){
         printf("Invalid option selected. Please select 1,2 or 3.\n");
     }
     end = clock();
-    //print_arr3(results_final);
+
     /* Printing verdict with timing*/
     double total_time = ((double) (end - begin)) / CLOCKS_PER_SEC;
     if(verdict == 1){
@@ -540,8 +538,6 @@ int main(int argc, char** argv){
     else{
         printf("There was an error in determining the solution. \n");
     }
-    
-    //printf("%d\n", option_1());
     return 0;
 }
 
