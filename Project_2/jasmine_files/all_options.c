@@ -10,8 +10,8 @@
 
 
 /* Global variables for board and line in board */
-char line[80];  // Buffer to hold each line
-int board[9][9]; // Empty sudoku board
+char line[80];  /* Buffer to hold each line */
+int board[9][9]; /* Empty sudoku board*/
 
 
 /*Results for multithreaded functions are recorded in these global arrays*/
@@ -34,25 +34,7 @@ typedef struct {
     int y;
 } block_offset;
 
-/*test. dont include me in final lol*/
-void print_arr(int *arr) {
-    printf("[");
-    for(int i = 0; i < 9; ++i) {
-        printf("%d, ", arr[i]);
-    }
-    printf("]\n");
-    return;
-}
 
-/*test. dont include me in final lol*/
-void print_arr3(int *arr) {
-    printf("[");
-    for(int i = 0; i < 3; ++i) {
-        printf("%d, ", arr[i]);
-    }
-    printf("]\n");
-    return;
-}
 
 /* Locks given location until result is given */
 void set_results(pthread_mutex_t lock, int *result_location, int result) {
@@ -169,7 +151,6 @@ void *check_rows(){
             set_results(results_lock, &results_final[0], 0);
             pthread_exit(0);
         }
-        //printf("Row %d is valid\n", i); //DELETE ME-- JUST FOR CHECKS
     }
     set_results(results_lock, &results_final[0], 1);
     
@@ -229,7 +210,6 @@ void *check_cols_mt(){
     for (int i = 0; i < 9; ++i){
         if (results_cols[i] == 0){
             /*At least one result was invalid*/
-            //printf("lol: %d\n", i);
             set_results(results_lock, &results_final[1], 0);
             pthread_exit(0);
         }
@@ -282,7 +262,6 @@ void *check_rows_child(void* mem){
         }
     }
     *results =  valid;
-    //printf("Rows: %d", valid);
     
     pthread_exit(0);
 }
@@ -299,7 +278,6 @@ void *check_cols_child(void* mem){
         }
     }
     *results = valid;
-    //printf("Cols: %d", valid);
     pthread_exit(0);
 }
 
@@ -333,7 +311,6 @@ void *check_blocks_child(void* mem){
         }
     }
     *results = valid;
-    //printf("Blocks: %d", valid);
     pthread_exit(0);
 }
 
@@ -381,7 +358,7 @@ int option_2(){
 
 int* shared_mem(){
 	
-	// Memory map the pointer to shared memory object
+	/* Memory map the pointer to shared memory object */
     int* mem = mmap(NULL, sizeof(int) * 3, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     /* initialize to all zeros */
@@ -403,27 +380,23 @@ int option_3(){
         pid = fork();
 
         if(pid == 0){ /* Child */
-            // check rows
+            /* check rows */
             if(i==1){
-                //printf("checking rows\n");
                 pthread_create(&tid_row, NULL, check_rows_child, &memory[0]);
                 pthread_join(tid_row, NULL);
                 exit(0);
-                        
             }
+            /* check cols */
             else if(i==2){
-                //printf("checking cols\n");
                 pthread_create(&tid_col, NULL, check_cols_child, &memory[1]);
                 pthread_join(tid_col, NULL);
                 exit(0);
-         
             }
+            /* check blocks */
             else{
-                //printf("checkings blocks\n");
                 pthread_create(&tid_block, NULL, check_blocks_child, &memory[2]);
                 pthread_join(tid_block, NULL);
                 exit(0);
-         
             }
             
         }
@@ -440,9 +413,8 @@ int option_3(){
             exit(1);
         }
     }
-    for(int i = 0 ; i<3 ; i++){ /* Parent processes*/
+    for(int i = 0 ; i<3 ; i++){ /* Parent process*/
         wait(NULL);
-
     }
     for(int i = 0; i < 3; ++i){
         if (memory[i] == 0){
@@ -472,11 +444,11 @@ int make_board(FILE* inputFile, int board[9][9], char line[80] ){
             return 1;
         }
 
-        // Tokenize after fgets successfully reads a line
+        /* tokenize after fgets successfully reads a line */
         char* num = strtok(line, " \n");
         for (int j = 0; j < 9 && num != NULL; j++) {
             board[i][j] = atoi(num);
-            num = strtok(NULL, " \n");  // Get the next number
+            num = strtok(NULL, " \n");  /* get the next number */
         }
     }
 
@@ -514,66 +486,6 @@ int make_board(FILE* inputFile, int board[9][9], char line[80] ){
  * 
  */
 
-// int run_stats(){
-
-//     FILE* fp = fopen("timing_results.csv", "w"); /* making 3 data collection files-- seeing if running each option first has any effect*/
-//     if (!fp) {
-//         perror("Failed to open file");
-//         return 1;
-//     }
-
-//     fprintf(fp, "Option,Run,Time(seconds),Mean Time(seconds)\n");
-//     clock_t start,finish;
-    
-//     for (int op = 1; op <= 3; op++) {
-//         double full_time = 0; // Total time for all runs in one option
-//         double timings[50]; // Array to store each run's timing
-
-//         for (int run = 0; run < 50; run++) {
-            
-//             start = clock();
-//             /* Choose option to run based on outter for loop */
-//             if (op == 1) {
-//                 option_1(); 
-//             } 
-//             else if (op == 2) {
-//                 option_2();
-//             } 
-//             else if (op == 3) {
-//                 option_3();
-//             }
-//             else{
-//                 perror("There was an error collecting data.\n");
-//             }
-
-//             finish = clock();
-//             double run_time = ((double)(finish - start)) / CLOCKS_PER_SEC;
-//             full_time += run_time;
-//             timings[run] = run_time;
-//         }
-        
-
-//         double mean = full_time / 50;
-
-//         /* Write each run and the mean time only on the last run of the set */
-//         for (int i = 0; i < 50; i++) {
-//             /* Only print mean on the last line for each option */
-//             if (i == 49) { 
-//                 //printf("%d,%d,%f,%f\n", op, i + 1, timings[i], mean);
-//                 fprintf(fp, "%d,%d,%f,%f\n", op, i + 1, timings[i], mean);
-//             } else {
-//                 fprintf(fp, "%d,%d,%f\n", op, i + 1, timings[i]);
-//             }
-//         }
-        
-        
-//     }
-
-//     fclose(fp);
-//     printf("Data collected. Please check timing_results.csv for results.\n");
-//     return 0;
-// }
-
 int run_stats(){
     FILE* fp = fopen("timing_results.csv", "w"); /* making 3 data collection files-- seeing if running each option first has any effect*/
     if (!fp) {
@@ -581,7 +493,7 @@ int run_stats(){
         return 1;
     }
 
-    fprintf(fp, "Option,Run,Time(seconds),Mean Time(seconds)\n");
+    fprintf(fp, "Option,Run,Time(seconds),Mean Time(seconds), %d\n", getpid());
     clock_t begin,end;
     double full_time = 0;
     double timings[50];
@@ -596,7 +508,6 @@ int run_stats(){
         timings[run] = run_time;
         fprintf(fp, "%d,%d,%f\n", 1, run + 1, timings[run]);
     }
-
     for(int run =0; run<50; run++){
         begin = clock();
         option_2();
@@ -608,8 +519,8 @@ int run_stats(){
         timings[run] = run_time;
         fprintf(fp, "%d,%d,%f\n", 2, run + 1, timings[run]);
     }
+    fclose(fp);
 
-    // if you comment this for loop out, it prints option 1 and 2 to the csv perfectly.
     for(int run =0; run<50; run++){
         begin = clock();
         option_3();
@@ -618,9 +529,10 @@ int run_stats(){
         double run_time = ((double)(end - begin)) / CLOCKS_PER_SEC;
         
         timings[run] = run_time;
+        fp = fopen("timing_results.csv", "a");
         fprintf(fp, "%d,%d,%f\n", 3, run + 1, timings[run]);
+        fclose(fp);
     }
-    fclose(fp);
     return 0;
 }
 
@@ -629,7 +541,6 @@ int run_stats(){
 int main(int argc, char** argv){
     /* Get option choice from user */
     int option = atoi(argv[1]);
-    //int option = 1;
     FILE* inputFile = fopen("input.txt", "r");
 
     make_board(inputFile, board, line);
@@ -664,11 +575,7 @@ int main(int argc, char** argv){
         printf("There was an error in determining the solution. \n");
     }
 
-
-
-
-
-    return run_stats();
+    run_stats();
 
     return 0;
 }
