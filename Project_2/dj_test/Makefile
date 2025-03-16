@@ -4,3 +4,4 @@ all:
 
 clean:
 	rm dj
+	rm timing_results.csv
